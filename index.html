@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; }
     .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -375,25 +376,59 @@
     }
 
     // OCRのモック機能（画像を読み込むフリをして確認画面を出す）
-    function processOCR(event) {
-      if(!event.target.files.length) return;
-      const btn = event.target.parentElement;
-      const originalText = btn.innerHTML;
-      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-6xl mb-4"></i><span class="text-xl font-bold">読み取り中...</span>`;
-      
-      setTimeout(() => {
-        btn.innerHTML = originalText;
-        document.getElementById('modalTitle').innerText = "OCR結果の確認・修正";
-        document.getElementById('editId').value = '';
-        // ダミーの読み取り結果をセット
-        const today = new Date();
-        document.getElementById('inputDate').value = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
-        document.getElementById('inputAmount').value = '1250';
-        document.getElementById('inputCategory').value = '食料品';
-        document.getElementById('inputStore').value = 'セブンイレブン';
-        openManualInput(true);
-      }, 1500);
+    // Tesseract.jsを使用した実稼働OCR処理
+async function processOCR(event) {
+  if(!event.target.files.length) return;
+  const file = event.target.files[0];
+  const btn = event.target.parentElement;
+  const originalText = btn.innerHTML;
+  
+  // UIをローディング状態にする
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-6xl mb-4"></i>
+                   <span class="text-xl font-bold">読み取り中...</span>
+                   <span class="text-sm mt-2 font-normal">※数秒〜十数秒かかります</span>`;
+  
+  try {
+    // Tesseract.jsで日本語を指定して読み取り
+    const result = await Tesseract.recognize(file, 'jpn');
+    const text = result.data.text;
+    console.log("▼ OCR読み取り結果の全文 ▼\n", text);
+
+    // --- 簡単なデータ抽出ロジック ---
+    let extractedAmount = '';
+    const today = new Date();
+    let extractedDate = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+
+    // 1. 金額らしきものを抽出（「合計」の文字や「¥」の近くにある数字を探す）
+    const amountMatch = text.match(/(?:合計|¥|￥)\s*([0-9,]+)/);
+    if (amountMatch) {
+      extractedAmount = amountMatch[1].replace(/,/g, ''); // カンマを除去
+    } else {
+      // 見つからない場合は、読み取れた数字の中で一番大きいものを候補にする
+      const numbers = text.match(/\b[1-9]\d{2,5}\b/g); 
+      if (numbers) extractedAmount = Math.max(...numbers.map(Number));
     }
+
+    // UIを元に戻す
+    btn.innerHTML = originalText;
+    document.getElementById('modalTitle').innerText = "OCR結果の確認・修正";
+    document.getElementById('editId').value = '';
+
+    // 抽出結果をフォームにセット
+    document.getElementById('inputDate').value = extractedDate; // 日付はひとまず今日をセット
+    document.getElementById('inputAmount').value = extractedAmount || '';
+    document.getElementById('inputCategory').value = '食料品'; // デフォルト
+    document.getElementById('inputStore').value = ''; // 店名の抽出は難易度が高いため空欄
+
+    // フォームを開く
+    openManualInput(true);
+
+  } catch (error) {
+    console.error("OCRエラー", error);
+    alert("画像の読み取りに失敗しました。");
+    btn.innerHTML = originalText;
+  }
+}
 
     function editRecord(id) {
       const record = allExpenses.find(e => e.id === id);
