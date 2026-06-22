@@ -11,13 +11,14 @@
     body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; }
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .view-section { display: none; }
+    .view-section.active { display: block; }
   </style>
 </head>
 <body class="bg-gray-200 flex justify-center h-screen w-screen m-0">
   <div class="bg-[#f0f0f0] w-full max-w-md h-full relative overflow-hidden flex flex-col shadow-2xl">
     
-    <div class="flex-1 overflow-y-auto hide-scrollbar pb-24 px-5 pt-8 space-y-6">
-      <!-- 総支出カード -->
+    <div id="view-home" class="view-section active flex-1 overflow-y-auto hide-scrollbar pb-24 px-5 pt-8 space-y-6">
       <div class="bg-[#ef9672] rounded-2xl p-5 text-white shadow-md">
         <div class="border-b border-white pb-2 mb-4">
           <h2 class="text-xl font-bold tracking-wide">記録された総支出</h2>
@@ -26,85 +27,330 @@
           <span id="totalAmount" class="text-5xl font-bold tracking-wider">￥0</span>
         </div>
       </div>
+      <div class="bg-white rounded-2xl p-5 shadow-md">
+        <h2 class="text-lg font-bold text-gray-700 border-b pb-2 mb-4">最近の記録</h2>
+        <div id="recentList" class="space-y-3"></div>
+      </div>
+    </div>
 
-      <!-- グラフカード -->
-      <div class="bg-[#7ac7a3] rounded-2xl p-5 text-white shadow-md">
-        <div class="border-b border-white pb-2 mb-4">
-          <h2 class="text-xl font-bold tracking-wide">最近の記録</h2>
+    <div id="view-calendar" class="view-section flex-1 overflow-y-auto hide-scrollbar pb-24">
+      <div class="bg-[#e06693] p-5 text-white text-center rounded-b-3xl shadow-md">
+        <h2 class="text-sm font-bold mt-4" id="calYear">2026年</h2>
+        <div class="flex justify-between items-center my-2">
+          <button onclick="changeMonth(-1)" class="text-2xl font-bold px-4"><i class="fa-solid fa-chevron-left"></i> 前月</button>
+          <span class="text-5xl font-bold" id="calMonth">6月</span>
+          <button onclick="changeMonth(1)" class="text-2xl font-bold px-4">次月 <i class="fa-solid fa-chevron-right"></i></button>
         </div>
-        <div class="relative h-48 w-full mt-4">
+        <p class="text-lg mt-2">総支出 <span id="calTotalAmount">￥0</span></p>
+      </div>
+      <div class="p-5">
+        <div class="bg-white rounded-2xl p-4 shadow-md">
+          <div class="grid grid-cols-7 gap-2 text-center text-gray-500 font-bold mb-2">
+            <div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div>
+          </div>
+          <div id="calendarGrid" class="grid grid-cols-7 gap-2"></div>
+        </div>
+        <div class="mt-4 px-2 space-y-1 text-sm font-bold text-gray-600">
+          <p><span class="inline-block w-4 h-4 rounded-full bg-[#5ba4cf] mr-2"></span>...￥1〜￥1,000</p>
+          <p><span class="inline-block w-4 h-4 rounded-full bg-[#3fa355] mr-2"></span>...￥1,001〜￥5,000</p>
+          <p><span class="inline-block w-4 h-4 rounded-full bg-[#e37e24] mr-2"></span>...￥5,001〜￥10,000</p>
+          <p><span class="inline-block w-4 h-4 rounded-full bg-[#d61b1b] mr-2"></span>...￥10,000〜</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-detail" class="view-section flex-1 overflow-y-auto hide-scrollbar pb-24">
+      <div class="bg-[#e06693] p-5 text-white text-center rounded-b-3xl shadow-md">
+        <h2 class="text-sm font-bold mt-4" id="detailYear">2026年</h2>
+        <div class="flex justify-between items-center my-2">
+          <button onclick="changeDate(-1)" class="text-2xl font-bold px-4"><i class="fa-solid fa-chevron-left"></i></button>
+          <span class="text-4xl font-bold" id="detailDate">6月14日</span>
+          <button onclick="changeDate(1)" class="text-2xl font-bold px-4"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <p class="text-lg mt-2">総支出 <span id="detailTotalAmount">￥0</span></p>
+      </div>
+      <div class="p-5">
+        <button onclick="switchView('calendar')" class="text-blue-500 font-bold mb-4"><i class="fa-solid fa-arrow-left"></i> もどる</button>
+        <div class="bg-white rounded-2xl p-4 shadow-md" id="detailList">
+          </div>
+      </div>
+    </div>
+
+    <div id="view-graph" class="view-section flex-1 overflow-y-auto hide-scrollbar pb-24">
+      <div class="bg-[#7ac7a3] p-5 text-white text-center rounded-b-3xl shadow-md">
+        <h2 class="text-sm font-bold mt-4" id="graphMonth">2026年 6月</h2>
+        <div class="flex justify-between items-center my-2">
+          <button onclick="changeWeek(-1)" class="text-xl font-bold px-2"><i class="fa-solid fa-chevron-left"></i> 前週</button>
+          <span class="text-4xl font-bold" id="graphWeek">14日〜20日</span>
+          <button onclick="changeWeek(1)" class="text-xl font-bold px-2">次週 <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <p class="text-lg mt-2">総支出 <span id="graphTotalAmount">￥0</span></p>
+      </div>
+      <div class="p-5">
+        <div class="bg-white rounded-2xl p-4 shadow-md relative h-80 w-full mt-4">
           <canvas id="expenseChart"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- プラスボタン -->
     <button onclick="openSelectModal()" class="absolute bottom-20 right-6 bg-[#f08a28] text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-4xl z-10 pb-1">
       +
     </button>
 
-    <!-- ボトムナビゲーション -->
     <div class="absolute bottom-0 w-full bg-white border-t border-gray-300 flex justify-around items-center h-16 z-10">
-      <div class="flex flex-col items-center justify-center w-20 h-12 bg-[#e2e2e2] rounded-full text-gray-800">
+      <div onclick="switchView('home')" id="nav-home" class="nav-btn flex flex-col items-center justify-center w-20 h-12 rounded-full text-gray-800 bg-[#e2e2e2] cursor-pointer">
         <i class="fa-solid fa-house text-xl"></i><span class="text-[10px] font-bold mt-1">ホーム</span>
       </div>
-      <div class="flex flex-col items-center justify-center w-20 h-12 text-gray-600">
+      <div onclick="switchView('calendar')" id="nav-calendar" class="nav-btn flex flex-col items-center justify-center w-20 h-12 text-gray-600 cursor-pointer">
         <i class="fa-solid fa-calendar-days text-xl"></i><span class="text-[10px] font-bold mt-1">カレンダー</span>
       </div>
-      <div class="flex flex-col items-center justify-center w-20 h-12 text-gray-600">
+      <div onclick="switchView('graph')" id="nav-graph" class="nav-btn flex flex-col items-center justify-center w-20 h-12 text-gray-600 cursor-pointer">
         <i class="fa-solid fa-chart-line text-xl"></i><span class="text-[10px] font-bold mt-1">グラフ</span>
       </div>
     </div>
 
     <div id="modalOverlay" class="absolute inset-0 bg-black/40 z-40 hidden transition-opacity duration-300 opacity-0"></div>
 
-    <!-- 入力方法選択モーダル -->
     <div id="selectModal" class="absolute bottom-0 w-full bg-white rounded-t-3xl h-[80%] z-50 transform translate-y-full transition-transform duration-300 flex flex-col">
       <div class="flex justify-start items-center p-4 border-b border-gray-300">
         <button onclick="closeModal()" class="text-blue-500 font-bold px-2 py-1 text-lg">キャンセル</button>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center space-y-8 px-8 pb-16">
-        <button onclick="startOcr()" class="w-full bg-[#f25e64] text-white rounded-2xl py-8 flex flex-col items-center justify-center shadow-md">
+        <label class="w-full bg-[#f25e64] text-white rounded-2xl py-8 flex flex-col items-center justify-center shadow-md cursor-pointer">
           <i class="fa-solid fa-camera text-6xl mb-4"></i><span class="text-xl font-bold">レシート画像から自動入力</span>
-        </button>
+          <input type="file" accept="image/*" class="hidden" onchange="processOCR(event)">
+        </label>
         <button onclick="openManualInput()" class="w-full bg-[#69addc] text-white rounded-2xl py-8 flex flex-col items-center justify-center shadow-md">
           <i class="fa-regular fa-keyboard text-6xl mb-4"></i><span class="text-xl font-bold">手動入力</span>
         </button>
       </div>
     </div>
 
-    <!-- 入力フォームモーダル -->
     <div id="inputModal" class="absolute bottom-0 w-full bg-white rounded-t-3xl h-[80%] z-50 transform translate-y-full transition-transform duration-300 flex flex-col">
-      <div class="flex justify-between items-center p-4 border-b border-gray-300">
+      <div class="flex justify-between items-center p-4 border-b border-gray-300 bg-gray-50 rounded-t-3xl">
         <button onclick="closeModal()" class="text-blue-500 font-bold px-2 py-1 text-lg">キャンセル</button>
+        <h3 id="modalTitle" class="font-bold text-gray-700">入力</h3>
         <button onclick="saveRecord()" class="text-blue-500 font-bold px-2 py-1 text-lg">保存</button>
       </div>
       <div class="flex-1 overflow-y-auto p-6">
         <div class="space-y-5">
+          <input type="hidden" id="editId">
           <div><label class="block font-bold text-gray-700 mb-1 text-lg">日付</label>
-          <input type="text" id="inputDate" class="w-full border border-gray-600 p-2 text-xl font-bold"></div>
+          <input type="text" id="inputDate" class="w-full border border-gray-600 p-2 text-xl font-bold rounded"></div>
           <div><label class="block font-bold text-gray-700 mb-1 text-lg">金額</label>
-          <input type="text" id="inputAmount" placeholder="金額を数字で入力" class="w-full border border-gray-600 p-2 text-xl font-bold"></div>
+          <input type="number" inputmode="numeric" pattern="[0-9]*" id="inputAmount" placeholder="金額を数字で入力" class="w-full border border-gray-600 p-2 text-xl font-bold rounded text-right"></div>
           <div><label class="block font-bold text-gray-700 mb-1 text-lg">カテゴリ</label>
-            <select id="inputCategory" class="w-full border border-gray-600 p-2 text-xl font-bold">
+            <select id="inputCategory" class="w-full border border-gray-600 p-2 text-xl font-bold rounded">
               <option value="" disabled selected>選択</option>
-              <option value="食費">食費</option><option value="日用品">日用品</option><option value="雑貨">雑貨</option>
+              <option value="食料品">食料品</option><option value="日用品">日用品</option><option value="雑貨">雑貨</option>
               <option value="娯楽費">娯楽費</option><option value="固定費">固定費</option><option value="その他">その他</option>
             </select>
           </div>
           <div><label class="block font-bold text-gray-700 mb-1 text-lg">店名</label>
-          <input type="text" id="inputStore" class="w-full border border-gray-600 p-2 text-xl font-bold"></div>
+          <input type="text" id="inputStore" class="w-full border border-gray-600 p-2 text-xl font-bold rounded"></div>
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    // モーダル開閉処理
+    let allExpenses = [];
+    let currentCalDate = new Date();
+    let selectedDetailDate = new Date();
+    let currentGraphDate = new Date();
+    let expenseChartInstance = null;
+
+    // --- ナビゲーションとビューの切り替え ---
+    function switchView(viewName) {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.getElementById('view-' + viewName).classList.add('active');
+      
+      document.querySelectorAll('.nav-btn').forEach(el => {
+        el.classList.remove('bg-[#e2e2e2]', 'text-gray-800');
+        el.classList.add('text-gray-600');
+      });
+      if(document.getElementById('nav-' + viewName)) {
+        document.getElementById('nav-' + viewName).classList.add('bg-[#e2e2e2]', 'text-gray-800');
+        document.getElementById('nav-' + viewName).classList.remove('text-gray-600');
+      }
+
+      if(viewName === 'calendar') renderCalendar();
+      if(viewName === 'graph') renderGraph();
+    }
+
+    // --- データ取得 ---
+    async function loadData() {
+      try {
+        const res = await fetch('/api/expenses');
+        if(res.ok) {
+          allExpenses = await res.json();
+          updateHome();
+          if(document.getElementById('view-calendar').classList.contains('active')) renderCalendar();
+          if(document.getElementById('view-detail').classList.contains('active')) renderDetail();
+          if(document.getElementById('view-graph').classList.contains('active')) renderGraph();
+        }
+      } catch(e) { console.error('データ取得エラー', e); }
+    }
+
+    function updateHome() {
+      let total = allExpenses.reduce((sum, e) => sum + e.amount, 0);
+      document.getElementById('totalAmount').innerText = '￥' + total.toLocaleString();
+      
+      const recentList = document.getElementById('recentList');
+      recentList.innerHTML = allExpenses.slice(0, 5).map(e => `
+        <div class="flex justify-between items-center border-b pb-2">
+          <div><span class="text-sm text-gray-500">${e.date}</span><br><span class="font-bold">${e.category} (${e.store_name})</span></div>
+          <div class="font-bold text-lg">￥${e.amount.toLocaleString()}</div>
+        </div>
+      `).join('');
+    }
+
+    // --- カレンダー機能 ---
+    function changeMonth(diff) {
+      currentCalDate.setMonth(currentCalDate.getMonth() + diff);
+      renderCalendar();
+    }
+    function renderCalendar() {
+      const year = currentCalDate.getFullYear();
+      const month = currentCalDate.getMonth();
+      document.getElementById('calYear').innerText = `${year}年`;
+      document.getElementById('calMonth').innerText = `${month + 1}月`;
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const lastDate = new Date(year, month + 1, 0).getDate();
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+
+      let monthTotal = 0;
+
+      // 空白のセル
+      for(let i = 0; i < firstDay; i++) {
+        grid.innerHTML += `<div class="p-2"></div>`;
+      }
+
+      // 日付セル
+      for(let i = 1; i <= lastDate; i++) {
+        const dateStr = `${year}/${String(month + 1).padStart(2,'0')}/${String(i).padStart(2,'0')}`;
+        const dayExpenses = allExpenses.filter(e => e.date === dateStr);
+        const dayTotal = dayExpenses.reduce((sum, e) => sum + e.amount, 0);
+        monthTotal += dayTotal;
+
+        let dotColor = 'transparent';
+        if(dayTotal > 0 && dayTotal <= 1000) dotColor = '#5ba4cf';
+        else if(dayTotal <= 5000) dotColor = '#3fa355';
+        else if(dayTotal <= 10000) dotColor = '#e37e24';
+        else if(dayTotal > 10000) dotColor = '#d61b1b';
+
+        grid.innerHTML += `
+          <div onclick="openDetail('${dateStr}')" class="border border-gray-200 rounded p-1 text-center h-14 flex flex-col items-center justify-start cursor-pointer active:bg-gray-100">
+            <span class="text-sm font-bold text-gray-700">${i}</span>
+            ${dayTotal > 0 ? `<span class="w-3 h-3 rounded-full mt-1" style="background-color: ${dotColor}"></span>` : ''}
+          </div>
+        `;
+      }
+      document.getElementById('calTotalAmount').innerText = '￥' + monthTotal.toLocaleString();
+    }
+
+    // --- 詳細画面機能 ---
+    function openDetail(dateStr) {
+      selectedDetailDate = new Date(dateStr);
+      renderDetail();
+      switchView('detail');
+    }
+    function changeDate(diff) {
+      selectedDetailDate.setDate(selectedDetailDate.getDate() + diff);
+      renderDetail();
+    }
+    function renderDetail() {
+      const year = selectedDetailDate.getFullYear();
+      const month = selectedDetailDate.getMonth() + 1;
+      const date = selectedDetailDate.getDate();
+      const dateStr = `${year}/${String(month).padStart(2,'0')}/${String(date).padStart(2,'0')}`;
+      const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+      
+      document.getElementById('detailYear').innerText = `${year}年`;
+      document.getElementById('detailDate').innerText = `${month}月${date}日`;
+      
+      const dayExpenses = allExpenses.filter(e => e.date === dateStr);
+      const dayTotal = dayExpenses.reduce((sum, e) => sum + e.amount, 0);
+      document.getElementById('detailTotalAmount').innerText = '￥' + dayTotal.toLocaleString();
+
+      let listHtml = `<h3 class="text-center font-bold text-gray-700 border-b pb-2 mb-4">${year}年 ${month}月${date}日 （${dayNames[selectedDetailDate.getDay()]}）</h3>`;
+      
+      if(dayExpenses.length === 0) {
+        listHtml += `<p class="text-center text-gray-500 my-8">記録がありません</p>`;
+      } else {
+        dayExpenses.forEach((e, index) => {
+          listHtml += `
+            <div class="flex justify-between items-center border-b py-3">
+              <div class="flex items-center w-full">
+                <span class="text-xl font-bold w-6">${index + 1}.</span>
+                <div class="flex-1 ml-2">
+                  <div class="text-right text-sm text-gray-400 font-bold">${e.category}</div>
+                  <div class="text-right text-2xl font-bold">￥${e.amount.toLocaleString()}</div>
+                  <div class="text-right text-sm text-gray-500">${e.store_name}</div>
+                </div>
+                <div class="flex flex-col space-y-2 ml-4">
+                  <button onclick="editRecord(${e.id})" class="bg-blue-500 text-white rounded p-1 text-xs"><i class="fa-solid fa-pen"></i></button>
+                  <button onclick="deleteRecord(${e.id})" class="bg-red-500 text-white rounded p-1 text-xs"><i class="fa-solid fa-trash"></i></button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      document.getElementById('detailList').innerHTML = listHtml;
+    }
+
+    // --- グラフ機能 ---
+    function changeWeek(diff) {
+      currentGraphDate.setDate(currentGraphDate.getDate() + (diff * 7));
+      renderGraph();
+    }
+    function renderGraph() {
+      // 週の開始日（日曜日）を計算
+      const d = new Date(currentGraphDate);
+      const day = d.getDay();
+      const diff = d.getDate() - day;
+      const startOfWeek = new Date(d.setDate(diff));
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+      document.getElementById('graphMonth').innerText = `${startOfWeek.getFullYear()}年 ${startOfWeek.getMonth() + 1}月`;
+      document.getElementById('graphWeek').innerText = `${startOfWeek.getDate()}日〜${endOfWeek.getDate()}日`;
+
+      let labels = [];
+      let dataPoints = [];
+      let weekTotal = 0;
+
+      for(let i = 0; i < 7; i++) {
+        const currentDate = new Date(startOfWeek);
+        currentDate.setDate(startOfWeek.getDate() + i);
+        labels.push(`${currentDate.getDate()}日`);
+        
+        const dateStr = `${currentDate.getFullYear()}/${String(currentDate.getMonth() + 1).padStart(2,'0')}/${String(currentDate.getDate()).padStart(2,'0')}`;
+        const dayTotal = allExpenses.filter(e => e.date === dateStr).reduce((sum, e) => sum + e.amount, 0);
+        dataPoints.push(dayTotal);
+        weekTotal += dayTotal;
+      }
+      
+      document.getElementById('graphTotalAmount').innerText = '￥' + weekTotal.toLocaleString();
+
+      const ctx = document.getElementById('expenseChart').getContext('2d');
+      if(expenseChartInstance) expenseChartInstance.destroy();
+      
+      expenseChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels: labels, datasets: [{ data: dataPoints, borderColor: '#7ac7a3', backgroundColor: 'rgba(122, 199, 163, 0.2)', borderWidth: 3, pointBackgroundColor: '#fff', pointRadius: 5, fill: true }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    // --- CRUD（保存・編集・削除・OCR） ---
     const overlay = document.getElementById('modalOverlay');
     const selectModal = document.getElementById('selectModal');
     const inputModal = document.getElementById('inputModal');
-    
+
     function openSelectModal() {
       overlay.classList.remove('hidden');
       setTimeout(() => { overlay.classList.remove('opacity-0'); selectModal.classList.remove('translate-y-full'); }, 10);
@@ -113,78 +359,87 @@
       selectModal.classList.add('translate-y-full'); inputModal.classList.add('translate-y-full');
       overlay.classList.add('opacity-0'); setTimeout(() => { overlay.classList.add('hidden'); }, 300);
     }
-    function openManualInput() {
+
+    function openManualInput(isOcr = false) {
       selectModal.classList.add('translate-y-full');
-      const today = new Date();
-      document.getElementById('inputDate').value = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
-      document.getElementById('inputAmount').value = '';
-      document.getElementById('inputCategory').value = '';
-      document.getElementById('inputStore').value = '';
+      if(!isOcr) {
+        document.getElementById('modalTitle').innerText = "手動入力";
+        document.getElementById('editId').value = '';
+        const today = new Date();
+        document.getElementById('inputDate').value = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+        document.getElementById('inputAmount').value = '';
+        document.getElementById('inputCategory').value = '';
+        document.getElementById('inputStore').value = '';
+      }
       setTimeout(() => { inputModal.classList.remove('translate-y-full'); }, 300);
     }
-    function startOcr() {
-      alert("自動入力機能は今後のステップで追加します！今回は手動入力をお試しください。");
+
+    // OCRのモック機能（画像を読み込むフリをして確認画面を出す）
+    function processOCR(event) {
+      if(!event.target.files.length) return;
+      const btn = event.target.parentElement;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-6xl mb-4"></i><span class="text-xl font-bold">読み取り中...</span>`;
+      
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        document.getElementById('modalTitle').innerText = "OCR結果の確認・修正";
+        document.getElementById('editId').value = '';
+        // ダミーの読み取り結果をセット
+        const today = new Date();
+        document.getElementById('inputDate').value = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+        document.getElementById('inputAmount').value = '1250';
+        document.getElementById('inputCategory').value = '食料品';
+        document.getElementById('inputStore').value = 'セブンイレブン';
+        openManualInput(true);
+      }, 1500);
     }
 
-    // データの読み込み処理（データベースから取得）
-    async function loadData() {
+    function editRecord(id) {
+      const record = allExpenses.find(e => e.id === id);
+      if(!record) return;
+      document.getElementById('modalTitle').innerText = "記録の編集";
+      document.getElementById('editId').value = record.id;
+      document.getElementById('inputDate').value = record.date;
+      document.getElementById('inputAmount').value = record.amount;
+      document.getElementById('inputCategory').value = record.category;
+      document.getElementById('inputStore').value = record.store_name;
+      
+      overlay.classList.remove('hidden');
+      setTimeout(() => { overlay.classList.remove('opacity-0'); inputModal.classList.remove('translate-y-full'); }, 10);
+    }
+
+    async function deleteRecord(id) {
+      if(!confirm('本当に削除しますか？')) return;
       try {
-        const res = await fetch('/api/expenses');
-        if(res.ok) {
-          const expenses = await res.json();
-          let total = 0;
-          expenses.forEach(e => total += e.amount);
-          document.getElementById('totalAmount').innerText = '￥' + total.toLocaleString();
-        }
-      } catch(e) { console.log('データ取得エラー'); }
+        const res = await fetch(`/api/expenses?id=${id}`, { method: 'DELETE' });
+        if(res.ok) loadData();
+      } catch(e) { alert('削除エラー'); }
     }
 
-    // データの保存処理（データベースへ送信）
     async function saveRecord() {
+      const id = document.getElementById('editId').value;
       const date = document.getElementById('inputDate').value;
-      const amountStr = document.getElementById('inputAmount').value.replace(/[^0-9]/g, '');
-      const amount = parseInt(amountStr, 10);
+      const amount = parseInt(document.getElementById('inputAmount').value, 10);
       const category = document.getElementById('inputCategory').value;
       const store = document.getElementById('inputStore').value;
 
-      if(!date || !amountStr || !category) {
-        alert("必須項目が入力されていません。");
-        return;
-      }
+      if(!date || isNaN(amount) || !category) return alert("必須項目が正しく入力されていません。");
 
-      const btn = document.querySelector('button[onclick="saveRecord()"]');
-      btn.innerText = "保存中...";
+      const method = id ? 'PUT' : 'POST';
+      const payload = { id, date, amount, category, store_name: store };
 
       try {
         const res = await fetch('/api/expenses', {
-          method: 'POST',
+          method: method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date, amount, category, store_name: store })
+          body: JSON.stringify(payload)
         });
-        if(res.ok) {
-          alert('保存しました！');
-          closeModal();
-          loadData(); // 画面を更新
-        } else {
-          alert('保存に失敗しました。');
-        }
-      } catch(e) {
-        alert('エラーが発生しました。');
-      } finally {
-        btn.innerText = "保存";
-      }
+        if(res.ok) { closeModal(); loadData(); }
+      } catch(e) { alert('保存エラー'); }
     }
 
-    // 起動時にデータを読み込む
     window.onload = loadData;
-
-    // グラフのダミー描画
-    const ctx = document.getElementById('expenseChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'line',
-      data: { labels: ['1', '2', '3', '4', '5'], datasets: [{ data: [1000, 2000, 1500, 3000, 2500], borderColor: '#fff', borderWidth: 3 }] },
-      options: { plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
-    });
   </script>
 </body>
 </html>
