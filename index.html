@@ -6,7 +6,6 @@
   <title>家計簿アプリ</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; }
@@ -420,56 +419,56 @@
       });
     }
 
-    async function processOCR(event) {
+async function processOCR(event) {
       if(!event.target.files.length) return;
       const file = event.target.files[0];
       const btn = event.target.parentElement;
       const originalText = btn.innerHTML;
       
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-6xl mb-4"></i>
-                       <span class="text-xl font-bold">画像処理＆読み取り中...</span>
+                       <span class="text-xl font-bold">高精度AIで解析中...</span>
                        <span class="text-sm mt-2 font-normal">※数秒かかります</span>`;
       
       try {
-        // 1. 画像の前処理（リサイズ＋白黒化）を実行
-        const processedImage = await preprocessImage(file);
+        // 画像をBase64という文字データに変換
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+          const base64Image = reader.result;
 
-        // 2. 処理済みの画像をTesseractに渡す
-        const result = await Tesseract.recognize(processedImage, 'jpn');
-        const text = result.data.text;
-        console.log("▼ 処理後画像のOCR読み取り結果 ▼\n", text);
+          // 自分のCloudflare API（/api/ocr）に送信
+          const res = await fetch('/api/ocr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64Image })
+          });
 
-        let extractedAmount = '';
-        const today = new Date();
-        let extractedDate = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+          const result = await res.json();
 
-        // 3. 金額を抽出（精度向上のため、正規表現を少し強化）
-        const amountMatch = text.match(/(?:合計|¥|￥|合\s*計)\s*([0-9,]+)/);
-        if (amountMatch) {
-          extractedAmount = amountMatch[1].replace(/,/g, ''); 
-        } else {
-          const numbers = text.match(/\b[1-9]\d{2,5}\b/g); 
-          if (numbers) extractedAmount = Math.max(...numbers.map(Number));
-        }
+          if(result.success) {
+            console.log("▼ Vision API 読み取り結果 ▼\n", result.text);
 
-        btn.innerHTML = originalText;
-        document.getElementById('modalTitle').innerText = "OCR結果の確認・修正";
-        document.getElementById('editId').value = '';
+            btn.innerHTML = originalText;
+            document.getElementById('modalTitle').innerText = "OCR結果の確認・修正";
+            document.getElementById('editId').value = '';
 
-        document.getElementById('inputDate').value = extractedDate; 
-        document.getElementById('inputAmount').value = extractedAmount || '';
-        document.getElementById('inputCategory').value = '食料品'; 
-        document.getElementById('inputStore').value = ''; 
+            // 解析結果をフォームにセット
+            document.getElementById('inputDate').value = result.date; 
+            document.getElementById('inputAmount').value = result.amount || '';
+            document.getElementById('inputCategory').value = '食料品'; 
+            document.getElementById('inputStore').value = ''; 
 
-        openManualInput(true);
-
+            openManualInput(true);
+          } else {
+            throw new Error("APIエラー");
+          }
+        };
       } catch (error) {
         console.error("OCRエラー", error);
-        alert("画像の読み取りに失敗しました。");
+        alert("画像の解析に失敗しました。");
         btn.innerHTML = originalText;
       }
     }
-
     function editRecord(id) {
       const record = allExpenses.find(e => e.id === id);
       if(!record) return;
