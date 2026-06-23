@@ -112,12 +112,22 @@
       </div>
       <div class="p-5">
         <div class="bg-white rounded-2xl p-4 shadow-md mt-4">
-          <div class="overflow-x-auto hide-scrollbar w-full">
-            <div class="w-[900px] h-72 relative">
-              <canvas id="expenseChart"></canvas>
+          <div class="flex h-72 relative">
+            <div class="w-14 h-full flex-shrink-0 bg-white pr-1">
+              <canvas id="axisChart"></canvas>
+            </div>
+            <div class="flex-1 overflow-x-auto hide-scrollbar h-full">
+              <div class="w-[900px] h-full">
+                <canvas id="expenseChart"></canvas>
+              </div>
             </div>
           </div>
           <p class="text-center text-xs text-gray-400 mt-2"><i class="fa-solid fa-arrows-left-right"></i> スクロールできます</p>
+          
+          <div class="mt-4 border-t pt-3 px-2 space-y-1 text-sm font-bold text-gray-600">
+            <p><span class="inline-block w-4 h-4 rounded-full bg-[#7ac7a3] mr-2"></span>...今月の支出</p>
+            <p><span class="inline-block w-4 h-4 rounded-full bg-[#ef9672] mr-2"></span>...先月の支出</p>
+          </div>
         </div>
       </div>
     </div>
@@ -177,6 +187,7 @@
     let selectedDetailDate = new Date();
     let currentGraphDate = new Date();
     let expenseChartInstance = null;
+    let axisChartInstance = null; // 固定軸用のチャートインスタンス
 
     function switchView(viewName) {
       document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -333,7 +344,7 @@
       document.getElementById('detailList').innerHTML = listHtml;
     }
 
-    // --- グラフ機能（今月と先月の比較＋横スクロール対応） ---
+    // --- グラフ機能（金額固定軸＋横スクロール同期） ---
     function changeGraphMonth(diff) {
       currentGraphDate.setMonth(currentGraphDate.getMonth() + diff);
       renderGraph();
@@ -341,21 +352,20 @@
     
     function renderGraph() {
       const currentYear = currentGraphDate.getFullYear();
-      const currentMonth = currentGraphDate.getMonth(); // 0-indexed
+      const currentMonth = currentGraphDate.getMonth();
 
       document.getElementById('graphYearText').innerText = `${currentYear}年`;
       document.getElementById('graphMonthText').innerText = `${currentMonth + 1}月`;
 
       const filterCat = document.getElementById('graphCategoryFilter').value;
       
-      // 今月と先月の日数を取得
       const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
       const prevMonthDate = new Date(currentYear, currentMonth - 1, 1);
       const prevYear = prevMonthDate.getFullYear();
       const prevMonth = prevMonthDate.getMonth();
       const daysInPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
 
-      const maxDays = Math.max(daysInCurrentMonth, daysInPrevMonth); // 基本は31
+      const maxDays = Math.max(daysInCurrentMonth, daysInPrevMonth);
 
       let labels = [];
       let currentData = [];
@@ -365,7 +375,6 @@
       for (let i = 1; i <= maxDays; i++) {
         labels.push(`${i}日`);
 
-        // 今月のデータ集計
         if (i <= daysInCurrentMonth) {
           const dateStr = `${currentYear}/${String(currentMonth + 1).padStart(2,'0')}/${String(i).padStart(2,'0')}`;
           const dayTotal = allExpenses.filter(e => {
@@ -380,7 +389,6 @@
           currentData.push(null);
         }
 
-        // 先月のデータ集計
         if (i <= daysInPrevMonth) {
           const prevDateStr = `${prevYear}/${String(prevMonth + 1).padStart(2,'0')}/${String(i).padStart(2,'0')}`;
           const prevDayTotal = allExpenses.filter(e => {
@@ -398,18 +406,49 @@
       const filterText = filterCat === '全て' ? '総支出' : `${filterCat}の支出`;
       document.getElementById('graphTotalAmount').innerHTML = `${filterText} <strong>￥${currentMonthTotal.toLocaleString()}</strong>`;
 
-      const ctx = document.getElementById('expenseChart').getContext('2d');
+      // 金額の最大値に合わせてY軸の目盛りを2つのグラフで完全同期させる計算
+      const allValues = [...currentData, ...prevData].filter(v => v !== null);
+      const maxVal = allValues.length > 0 ? Math.max(...allValues) : 10000;
+      const yMax = Math.ceil((maxVal * 1.1) / 5000) * 5000; // キリの良い数字にする
+
+      // 1. 左側の固定Y軸（金額目盛り）チャートの描画
+      const ctxAxis = document.getElementById('axisChart').getContext('2d');
+      if(axisChartInstance) axisChartInstance.destroy();
+      axisChartInstance = new Chart(ctxAxis, {
+        type: 'line',
+        data: { labels: labels, datasets: [{ data: [] }] }, // データ線は描画しない
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: {
+            x: { display: false }, // X軸（日付）は非表示
+            y: {
+              beginAtZero: true,
+              max: yMax,
+              grid: { display: true },
+              ticks: {
+                font: { size: 10, weight: 'bold' },
+                color: '#666',
+                callback: function(value) { return value.toLocaleString(); }
+              }
+            }
+          }
+        }
+      });
+
+      // 2. 右側の横スクロールするデータチャートの描画
+      const ctxData = document.getElementById('expenseChart').getContext('2d');
       if(expenseChartInstance) expenseChartInstance.destroy();
       
-      expenseChartInstance = new Chart(ctx, {
+      expenseChartInstance = new Chart(ctxData, {
         type: 'line',
         data: { 
           labels: labels, 
           datasets: [
             { 
-              label: '今月',
               data: currentData, 
-              borderColor: '#7ac7a3', // 緑色
+              borderColor: '#7ac7a3', 
               backgroundColor: 'rgba(122, 199, 163, 0.2)', 
               borderWidth: 3, 
               pointBackgroundColor: '#fff', 
@@ -417,12 +456,11 @@
               fill: true 
             },
             { 
-              label: '先月',
               data: prevData, 
-              borderColor: '#ef9672', // オレンジ色
+              borderColor: '#ef9672', 
               backgroundColor: 'rgba(239, 150, 114, 0.1)', 
               borderWidth: 2, 
-              borderDash: [5, 5], // 点線で区別
+              borderDash: [5, 5], 
               pointBackgroundColor: '#fff', 
               pointRadius: 3, 
               fill: true 
@@ -433,10 +471,18 @@
           responsive: true, 
           maintainAspectRatio: false, 
           plugins: { 
-            legend: { display: true, position: 'top', labels: { usePointStyle: true } } 
+            legend: { display: false } // デフォルトの凡例は非表示にする
           }, 
           scales: { 
-            y: { beginAtZero: true } 
+            x: {
+              grid: { display: false },
+              ticks: { font: { weight: 'bold' }, color: '#666' }
+            },
+            y: { 
+              display: false, // Y軸（目盛り自体）は非表示にして左の軸に任せる
+              beginAtZero: true,
+              max: yMax // 目盛り位置だけは完全同期
+            } 
           } 
         }
       });
