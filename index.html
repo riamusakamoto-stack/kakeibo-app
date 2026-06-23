@@ -53,7 +53,7 @@
           <span class="text-5xl font-bold" id="calMonth">6月</span>
           <button onclick="changeMonth(1)" class="text-2xl font-bold px-4">次月 <i class="fa-solid fa-chevron-right"></i></button>
         </div>
-        <p class="text-lg mt-2">総支出 <span id="calTotalAmount">￥0</span></p>
+        <p class="text-lg mt-2" id="calTotalAmount">総支出 <strong>￥0</strong></p>
       </div>
       <div class="p-5">
         <div class="bg-white rounded-2xl p-4 shadow-md">
@@ -79,7 +79,7 @@
           <span class="text-4xl font-bold" id="detailDate">6月14日</span>
           <button onclick="changeDate(1)" class="text-2xl font-bold px-4"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
-        <p class="text-lg mt-2">総支出 <span id="detailTotalAmount">￥0</span></p>
+        <p class="text-lg mt-2" id="detailTotalAmount">総支出 <strong>￥0</strong></p>
       </div>
       <div class="p-5">
         <button onclick="switchView('calendar')" class="text-blue-500 font-bold mb-4"><i class="fa-solid fa-arrow-left"></i> もどる</button>
@@ -108,15 +108,14 @@
           <span class="text-5xl font-bold" id="graphMonthText">6月</span>
           <button onclick="changeGraphMonth(1)" class="text-xl font-bold px-2">次月 <i class="fa-solid fa-chevron-right"></i></button>
         </div>
-        <p class="text-lg mt-2">今月の総支出 <span id="graphTotalAmount">￥0</span></p>
+        <p class="text-lg mt-2" id="graphTotalAmount">今月の総支出 <strong>￥0</strong></p>
       </div>
       <div class="p-5">
         <div class="bg-white rounded-2xl p-4 shadow-md mt-4">
           <div class="flex h-72 relative">
-            <div class="w-14 h-full flex-shrink-0 bg-white pr-1">
-              <canvas id="axisChart"></canvas>
+            <div class="w-16 h-full flex-shrink-0 bg-white z-10 pb-[24px]"> <canvas id="axisChart"></canvas>
             </div>
-            <div class="flex-1 overflow-x-auto hide-scrollbar h-full">
+            <div class="flex-1 overflow-x-auto hide-scrollbar h-full -ml-1">
               <div class="w-[900px] h-full">
                 <canvas id="expenseChart"></canvas>
               </div>
@@ -187,7 +186,7 @@
     let selectedDetailDate = new Date();
     let currentGraphDate = new Date();
     let expenseChartInstance = null;
-    let axisChartInstance = null; // 固定軸用のチャートインスタンス
+    let axisChartInstance = null;
 
     function switchView(viewName) {
       document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -232,7 +231,6 @@
       `).join('');
     }
 
-    // --- カレンダー機能 ---
     function changeMonth(diff) {
       currentCalDate.setMonth(currentCalDate.getMonth() + diff);
       renderCalendar();
@@ -344,7 +342,7 @@
       document.getElementById('detailList').innerHTML = listHtml;
     }
 
-    // --- グラフ機能（金額固定軸＋横スクロール同期） ---
+    // --- グラフ機能 ---
     function changeGraphMonth(diff) {
       currentGraphDate.setMonth(currentGraphDate.getMonth() + diff);
       renderGraph();
@@ -403,33 +401,39 @@
         }
       }
       
-      const filterText = filterCat === '全て' ? '総支出' : `${filterCat}の支出`;
+      const filterText = filterCat === '全て' ? '今月の総支出' : `今月の${filterCat}の支出`;
       document.getElementById('graphTotalAmount').innerHTML = `${filterText} <strong>￥${currentMonthTotal.toLocaleString()}</strong>`;
 
-      // 金額の最大値に合わせてY軸の目盛りを2つのグラフで完全同期させる計算
       const allValues = [...currentData, ...prevData].filter(v => v !== null);
       const maxVal = allValues.length > 0 ? Math.max(...allValues) : 10000;
-      const yMax = Math.ceil((maxVal * 1.1) / 5000) * 5000; // キリの良い数字にする
+      const yMax = Math.ceil((maxVal * 1.1) / 5000) * 5000; 
 
-      // 1. 左側の固定Y軸（金額目盛り）チャートの描画
+      // 上下の余白を揃えて横線を完全同期させる設定
+      const chartPadding = { top: 20, bottom: 10, left: 0, right: 20 };
+
       const ctxAxis = document.getElementById('axisChart').getContext('2d');
       if(axisChartInstance) axisChartInstance.destroy();
       axisChartInstance = new Chart(ctxAxis, {
         type: 'line',
-        data: { labels: labels, datasets: [{ data: [] }] }, // データ線は描画しない
+        data: { labels: labels, datasets: [{ data: [] }] }, 
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: chartPadding },
           plugins: { legend: { display: false }, tooltip: { enabled: false } },
           scales: {
-            x: { display: false }, // X軸（日付）は非表示
+            x: { 
+              grid: { display: false, drawBorder: false },
+              ticks: { display: false } 
+            },
             y: {
               beginAtZero: true,
               max: yMax,
-              grid: { display: true },
+              grid: { display: true, drawBorder: false },
               ticks: {
                 font: { size: 10, weight: 'bold' },
                 color: '#666',
+                padding: 0,
                 callback: function(value) { return value.toLocaleString(); }
               }
             }
@@ -437,7 +441,6 @@
         }
       });
 
-      // 2. 右側の横スクロールするデータチャートの描画
       const ctxData = document.getElementById('expenseChart').getContext('2d');
       if(expenseChartInstance) expenseChartInstance.destroy();
       
@@ -470,25 +473,27 @@
         options: { 
           responsive: true, 
           maintainAspectRatio: false, 
-          plugins: { 
-            legend: { display: false } // デフォルトの凡例は非表示にする
-          }, 
+          layout: { padding: chartPadding },
+          plugins: { legend: { display: false } }, 
           scales: { 
             x: {
-              grid: { display: false },
+              grid: { display: false, drawBorder: false },
               ticks: { font: { weight: 'bold' }, color: '#666' }
             },
             y: { 
-              display: false, // Y軸（目盛り自体）は非表示にして左の軸に任せる
               beginAtZero: true,
-              max: yMax // 目盛り位置だけは完全同期
+              max: yMax,
+              // 右側のグラフにも横線を引く
+              grid: { display: true, drawBorder: false },
+              // 文字(単位)は左側に任せて消す
+              ticks: { display: false }, 
+              border: { display: false }
             } 
           } 
         }
       });
     }
 
-    // --- CRUD（保存・編集・削除） ---
     const overlay = document.getElementById('modalOverlay');
     const inputModal = document.getElementById('inputModal');
 
